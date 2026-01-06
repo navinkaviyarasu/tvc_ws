@@ -1,0 +1,221 @@
+<!-- Description:
+  Experimental model of the Viper TVc sub-unit, aimed to included the linear servo kinematics.
+   
+  ChangeLogs:
+  xxyyzz  : Your information on updates to the file
+
+  Errors/Issues:
+  25092025  : Including linear servo induces kinematic chain
+-->
+
+<?xml version="1.0" ?>
+<sdf version="1.11">
+  <model name="tvc_gimbal">
+  <!-- <pose> 0 0 0 0 0 0</pose> -->
+    <static>false</static>
+    <link name="gimbal_plate">
+      <pose>0 0 1 0 0 0</pose>
+      <collision name="col">
+        <geometry><cylinder><radius>0.075</radius><length>0.005</length></cylinder></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><cylinder><radius>0.075</radius><length>0.005</length></cylinder></geometry>
+      </visual>
+    </link>
+
+    <link name="extender">
+      <pose relative_to="gimbal_plate">0 0 -0.044 0 0 0</pose>
+      <collision name="col">
+        <geometry><cylinder><radius>0.015</radius><length>0.083</length></cylinder></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><cylinder><radius>0.015</radius><length>0.083</length></cylinder></geometry>
+      </visual>
+      <inertial>
+        <mass>1.0</mass>
+        <inertia>
+          <ixx>0.001</ixx> <iyy>0.001</iyy> <izz>0.001</izz>
+          <ixy>0</ixy> <ixz>0</ixz> <iyz>0</iyz>
+        </inertia>
+      </inertial>
+    </link>
+
+    <link name="gimbal_roll">
+      <pose relative_to="extender">0 0 -0.0665 0 0 0</pose>
+      <!-- <collision name="col">
+        <geometry><cylinder><radius>0.05</radius><length>0.4</length></cylinder></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><cylinder><radius>0.05</radius><length>0.4</length></cylinder></geometry>
+      </visual> -->
+      <inertial>
+        <mass>0.01</mass>
+        <inertia>
+          <ixx>0.001</ixx> <iyy>0.001</iyy> <izz>0.001</izz>
+          <ixy>0</ixy> <ixz>0</ixz> <iyz>0</iyz>
+        </inertia>
+      </inertial>
+    </link>
+
+    <link name="gimbal_pitch">
+      <pose relative_to="extender">0 0 -0.0665 0 0 0</pose>
+      <!-- <collision name="col">
+        <geometry><cylinder><radius>0.05</radius><length>0.4</length></cylinder></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><cylinder><radius>0.05</radius><length>0.4</length></cylinder></geometry>
+      </visual> -->
+      <inertial>
+        <mass>0.01</mass>
+        <inertia>
+          <ixx>0.001</ixx> <iyy>0.001</iyy> <izz>0.001</izz>
+          <ixy>0</ixy> <ixz>0</ixz> <iyz>0</iyz>
+        </inertia>
+      </inertial>
+    </link>
+
+    <link name="motor_housing">
+      <pose relative_to="extender">0 0 -0.094 0 0 0</pose>
+      <collision name="col">
+        <geometry><cylinder><radius>0.033</radius><length>0.005</length></cylinder></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><cylinder><radius>0.033</radius><length>0.005</length></cylinder></geometry>
+      </visual>
+      <inertial>
+        <mass>0.01</mass>
+        <inertia>
+          <ixx>0.001</ixx> <iyy>0.001</iyy> <izz>0.001</izz>
+          <ixy>0</ixy> <ixz>0</ixz> <iyz>0</iyz>
+        </inertia>
+      </inertial>
+    </link>
+
+    <!-- <link name="pitch_servo_tail_stock">
+      <pose relative_to="gimbal_plate">0 0.0675 -0.0118 -19.17 0 0</pose>
+      <collision name="col">
+        <geometry><cylinder><radius>0.05</radius><length>0.4</length></cylinder></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><cylinder><radius>0.0035</radius><length>0.01</length></cylinder></geometry>
+      </visual>
+      <inertial>
+        <mass>1.0</mass>
+        <inertia>
+          <ixx>0.001</ixx> <iyy>0.001</iyy> <izz>0.001</izz>
+          <ixy>0</ixy> <ixz>0</ixz> <iyz>0</iyz>
+        </inertia>
+      </inertial>
+    </link> -->
+
+    <!-- <link name="pitch_servo_rod_end">
+      <pose relative_to="motor_housing">0 0.0279 0.0118 -19.17 0 0</pose>
+      <collision name="col">
+        <geometry><cylinder><radius>0.05</radius><length>0.4</length></cylinder></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><cylinder><radius>0.0035</radius><length>0.01</length></cylinder></geometry>
+      </visual>
+      <inertial>
+        <mass>1.0</mass>
+        <inertia>
+          <ixx>0.001</ixx> <iyy>0.001</iyy> <izz>0.001</izz>
+          <ixy>0</ixy> <ixz>0</ixz> <iyz>0</iyz>
+        </inertia>
+      </inertial>
+    </link> -->
+
+    <joint name="gimbalplateTOworld" type="fixed">
+        <parent>world</parent>
+        <child>gimbal_plate</child>
+    </joint>
+
+    <joint name="extenderTOgimbalplate" type="fixed">
+        <parent>gimbal_plate</parent>
+        <child>extender</child>
+    </joint>
+
+    <joint name="gimbalrollTOextender" type="revolute">
+        <parent>extender</parent>
+        <child>gimbal_roll</child>
+        <pose relative_to="gimbal_roll">0 0 0 0 0 0</pose>
+        <axis>
+          <xyz>1 0 0</xyz>
+          <limit>
+            <lower>-0.25</lower>
+            <upper>0.25</upper>
+            <!-- <effort>100</effort> -->
+            <velocity>0.25</velocity>
+          </limit>
+        </axis>
+    </joint>
+
+    <joint name="gimbalpitchTOgimbalroll" type="revolute">
+        <parent>gimbal_roll</parent>
+        <child>gimbal_pitch</child>
+        <axis>
+          <xyz>0 1 0</xyz>
+          <limit>
+            <lower>-0.25</lower>
+            <upper>0.25</upper>
+            <!-- <effort>100</effort> -->
+            <velocity>0.25</velocity>
+          </limit>
+        </axis>
+    </joint>
+
+    <joint name="gimbalpitchTOmotorhousing" type="fixed">
+        <parent>gimbal_pitch</parent>
+        <child>motor_housing</child>
+    </joint>
+
+    <!-- <joint name="universalJoint" type="ball">
+        <parent>extender</parent>
+        <child>motor_housing</child>
+        <pose relative_to="extender">0 0 -0.0665 0 0 0</pose>
+    </joint> -->
+
+
+    <!-- <joint name="motorhousingTOpitchservorodend" type="revolute">
+        <parent>motor_housing</parent>
+        <child>pitch_servo_rod_end</child>
+        <pose relative_to="motor_housing">0.0279 0 0.0118 0 0 0</pose>
+    </joint> -->
+
+    <!-- <joint name="pitchservoPrismaticJoint" type="prismatic">
+      <parent>pitch_servo_rod_end</parent>
+      <child>pitch_servo_tail_stock</child>
+      <pose>0 0 0.25 0 0 0</pose>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit><lower>0</lower><upper>1</upper></limit>
+      </axis>
+    </joint> -->
+
+    <!-- <joint name="pitchservotailstockTOgimalplate" type="revolute">
+        <parent>gimbal_plate</parent>
+        <child>pitch_servo_tail_stock</child>
+        <pose relative_to="gimbal_plate">0 0.0675 -0.0118 0 0 0</pose>
+    </joint> -->
+
+    <plugin filename="gz-sim-joint-position-controller-system"
+            name="gz::sim::systems::JointPositionController">
+      <joint_name>gimbalrollTOextender</joint_name>
+      <sub_topic>servo_0</sub_topic>
+      <p_gain>1</p_gain>
+      <i_gain>0</i_gain>
+      <d_gain>0</d_gain>
+    </plugin>
+
+    <plugin filename="gz-sim-joint-position-controller-system"
+            name="gz::sim::systems::JointPositionController">
+      <joint_name>gimbalpitchTOgimbalroll</joint_name>
+      <sub_topic>servo_1</sub_topic>
+      <p_gain>1</p_gain>
+      <i_gain>0</i_gain>
+      <d_gain>0</d_gain>
+    </plugin>
+        
+
+  </model>
+</sdf>

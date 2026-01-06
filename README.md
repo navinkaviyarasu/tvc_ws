@@ -139,6 +139,10 @@ MicroXRCEAgent udp4 -p 8888
 # Bind GZ clock to ros2
 # Open a new terminal
 ros2 run ros_gz_bridge parameter_bridge /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock
+
+ros2 run ros_gz_bridge parameter_bridge /model/tvc_0/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry
+
+ros2 run ros_gz_bridge parameter_bridge /model/tvc_0/pose@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V
 ```
 
 ### 5. Run the ROS2 Code
@@ -196,6 +200,8 @@ This implementation uses standard aerospace coordinate conventions:
 - **Coaxial propellers**: CW/CCW propeller meshes
 - **Sensor integration**: IMU and other sensors
 - **Visual representation**: 3D meshes and materials
+
+Model-specific documentation (including plugin SDF parameters for the `viper` model) is available at `src/tvc_controller/models/viper/README.md`.
 
 ## 🐛 Debugging
 For debugging the data plotjuggler is highly recommended. Use the following command to run plotjuggler.

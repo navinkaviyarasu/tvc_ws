@@ -12,7 +12,7 @@
       
       # Distance from center of mass (m) to center of thrust in z direction in FRD frame
       # Here, the assumption is that center of mass and center of thrust are aligned in the z direction.
-      DIST_COM_2_THRUST: 0.5693
+      DIST_COM_2_THRUST: 0.5693 # DIST_COM_2_THRUST: 0.5693 (default)
       
       # Moments of inertia (kg*m^2)
       I_XX: 0.062796
@@ -20,7 +20,7 @@
       I_ZZ: 0.001403
       
       # Total mass (kg)
-      MASS: 0.6570
+      MASS: 0.6570 #0.6570
     
     # =====================================
     # LQR CONTROLLER WEIGHTS
@@ -48,8 +48,8 @@
       # Control weight matrix R (diagonal elements)
       # Order: [servo_0, servo_1, main_thrust, torque_z]
       ## Note: Servo 0 and servo 1 are the control inputs for the two servos.
-      ## servo 0 is mounted on x axis in FRD frame in body frame.
-      ## servo 1 is mounted on y axis in FRD frame in body frame.
+      ## servo 0 is mounted on x axis in FRD frame in gimbal frame.
+      ## servo 1 is mounted on y axis in FRD frame in gimbal frame.
       R_diagonal:
         - 10.0   # servo 0
         - 10.0   # servo 1
@@ -63,7 +63,7 @@
       # Target state vector [x, y, z, x_dot, y_dot, z_dot, q_x, q_y, q_z, q_w, p, q, r]
       # Position target is incremental from current position.
       position:
-        x: 5.0       # target x position (m)
+        x: 0.0       # target x position (m)
         y: 0.0       # target y position (m)
         z: -5.0      # target z position (m)
       
@@ -79,7 +79,7 @@
         q_x: 0.0     # target quaternion x
         q_y: 0.0     # target quaternion y
         q_z: 0.0     # target quaternion z
-        q_w: 1.0     # target quaternion w
+        q_w: 1.0    # target quaternion w
       
       angular_velocity:
         p: 0.0       # target angular velocity p (rad/s)
@@ -130,5 +130,13 @@
         p1: 3.1352e-4       # coefficient for motor speeds squared
         p2: 0.1352          # coefficient for motor speeds
         p3: 996.9672        # constant term for PWM conversion
+
+    # =====================================
+    # MISSION PARAMETERS
+    # =====================================
+
+    mission:
+
+      use_groundtruth: False # whether to use gazebo groundtruth instead of state estimation
   
 

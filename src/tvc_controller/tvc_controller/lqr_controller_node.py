@@ -6,9 +6,11 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPo
 from scipy.spatial.transform import Rotation as R
 from px4_msgs.msg import OffboardControlMode, VehicleCommand, VehicleStatus, VehicleOdometry, VehicleAttitude
 from px4_msgs.msg import VehicleThrustSetpoint, VehicleTorqueSetpoint, ActuatorMotors, ActuatorServos
+from nav_msgs.msg import Odometry
 import numpy as np
 from tvc_controller.lqr import LQRController 
 from typing import List, Dict, Any
+from .tvc_actuator_dynamics import ActuatorModel
 import math
 # import tvc_controller_msgs
 
@@ -45,6 +47,7 @@ class TVC_CONTROLLER(Node):
 
         # Initialize parameters
         self.load_parameters()
+        # print(f"Groundtruth parameter is: {self.use_groundtruth}")
 
         # Print loaded parameters
         self.log_parameters()
@@ -78,6 +81,8 @@ class TVC_CONTROLLER(Node):
         self.get_logger().info(f"LQR gain matrix K:\n{self.K}")
         self.get_logger().info(f"Size of K: {self.K.shape}")
 
+        # self.actuator_model = ActuatorModel()
+
         # Publishers
         self.offboard_control_mode_publisher = self.create_publisher(
             OffboardControlMode, '/fmu/in/offboard_control_mode', qos_profile)
@@ -89,6 +94,8 @@ class TVC_CONTROLLER(Node):
                 ActuatorMotors, '/fmu/in/actuator_motors', qos_profile)
             self.actuator_servo_setpoint_publisher = self.create_publisher(
                 ActuatorServos, '/fmu/in/actuator_servos', qos_profile)
+            self.actuator_servo_demand = self.create_publisher(
+                ActuatorServos,'fmu/in/actuator_demand', qos_profile)
         else:
             self.thrust_setpoint_publisher = self.create_publisher(
                 VehicleThrustSetpoint, '/fmu/in/vehicle_thrust_setpoint', qos_profile)
@@ -96,15 +103,26 @@ class TVC_CONTROLLER(Node):
                 VehicleTorqueSetpoint, '/fmu/in/vehicle_torque_setpoint', qos_profile)
         
         # Subscribers
-        self.vehicle_odom_subscriber = self.create_subscription(
-            VehicleOdometry, '/fmu/out/vehicle_odometry',
-            self.vehicle_odometry_callback, qos_profile)
+        if not self.use_groundtruth:
+            self.vehicle_odom_subscriber = self.create_subscription(
+                VehicleOdometry, '/fmu/out/vehicle_odometry',
+                self.vehicle_odometry_callback, qos_profile)
+            self.vehicle_attitude_gt_subscriber = self.create_subscription(
+                VehicleAttitude, '/fmu/out/vehicle_attitude_groundtruth',
+                self.vehicle_attitude_gt_callback, qos_profile)
+        else:
+            self.vehicle_pose_gt =self.create_subscription(
+                Odometry,'model/tvc_0/odometry',
+                self.vehicle_pose_gt_callback, DurabilityPolicy.VOLATILE
+            )
+            # self.vehicle_attitude_gt_subscriber = self.create_subscription(
+            #     VehicleAttitude, '/fmu/out/vehicle_attitude_groundtruth',
+            #     self.vehicle_attitude_gt_callback, qos_profile)
+                
         self.vehicle_status_subscriber = self.create_subscription(
             VehicleStatus, '/fmu/out/vehicle_status',
             self.vehicle_status_callback, qos_profile)
-        self.vehicle_attitude_gt_subscriber = self.create_subscription(
-            VehicleAttitude, '/fmu/out/vehicle_attitude_groundtruth',
-            self.vehicle_attitude_gt_callback, qos_profile)
+
 
         # Variables
         self.nav_state = VehicleStatus.NAVIGATION_STATE_MAX
@@ -134,6 +152,8 @@ class TVC_CONTROLLER(Node):
         # NEW: Variables for orientation normalization
         self.initial_rotation_matrix = None  # Fixed rotation matrix calculated at startup
         self.is_orientation_normalized = False
+
+        # self.last_time = self.get_clock().now().nanoseconds * 1e-9
 
         # Timer
         self.timer = self.create_timer(0.1, self.timer_callback)  # 10Hz
@@ -312,6 +332,7 @@ class TVC_CONTROLLER(Node):
             self.declare_parameter('control_allocation.moment_coefficients.cm_1', 0.1)
             
             # PWM conversion polynomial coefficients
+            # Note: These coefficients are from the thrust stand test for the motor&propeller: powerX CRM2208-1600 HQProp 8050 in contra-rotating config
             self.declare_parameter('control_allocation.pwm_conversion.p1', 3.1352e-4)
             self.declare_parameter('control_allocation.pwm_conversion.p2', 0.1352)
             self.declare_parameter('control_allocation.pwm_conversion.p3', 996.9672)
@@ -331,6 +352,13 @@ class TVC_CONTROLLER(Node):
         
             # Create control allocation matrices using loaded parameters
             self.create_control_allocation_matrices()      
+
+        # =====================================
+        # MISSION PARAMETERS
+        # =====================================
+
+        self.declare_parameter('mission.use_groundtruth', False)
+        self.use_groundtruth = self.get_parameter('mission.use_groundtruth').get_parameter_value().bool_value
 
     def log_parameters(self) -> None:
         """
@@ -502,6 +530,111 @@ class TVC_CONTROLLER(Node):
             'allocation_matrix': self.B.copy(),
             'allocation_inverse': self.B_inv.copy()
         }
+
+    def vehicle_pose_gt_callback(self, msg: Odometry):
+        """
+        Callback for vehicle attitude ground truth messages.
+        
+        This callback processes incoming attitude data from PX4, handles
+        quaternion format conversion from [qw, qx, qy, qz] to [qx, qy, qz, qw],
+        applies orientation normalization if initialized, and manages the
+        attitude initialization phase including data collection for averaging.
+        
+        Args:
+            msg (VehicleAttitude): ROS2 message containing vehicle attitude
+                                 information including quaternion orientation.
+        """
+
+        # print(f"Odometry message: {msg}")
+
+        # Extract quaternion [qx, qy, qz, qw] of FLU with respect to ENU frame from msg
+        q_gazebo = msg.pose.pose.orientation
+        q_gazebo = np.array([q_gazebo.x, q_gazebo.y, q_gazebo.z, q_gazebo.w]) 
+
+        r_gazebo = R.from_quat(q_gazebo)
+
+        r_flip = R.from_euler('x', 180, degrees=True)
+
+        r_px4 = r_flip*r_gazebo*r_flip
+
+        q_px4 = r_px4.as_quat()
+
+        print(f"quaternion Gazebo:{q_gazebo} Aftertf:{q_px4}")
+
+        
+        # Handle invalid quaternion
+        # if np.isnan(q_msg.w):
+        #     if self._last_update_quaternion is not None:
+        #         self.current_quaternion = self._last_update_quaternion.copy()
+        #     else:
+        #         self.current_quaternion = np.array([0, 0, 0, 1])  # Default quaternion
+        #     return
+        
+        # Reorder to [qx, qy, qz, qw] for internal use with respect to NED frame
+        # current_q_ned = np.array([q_msg.x, -q_msg.y, -q_msg.z, q_msg.w])
+        
+        current_q_ned = q_px4
+        
+        # Store valid quaternion
+        self.current_quaternion = current_q_ned
+        self._last_update_quaternion = current_q_ned.copy()
+        
+        # Apply orientation normalization if initialized
+        if self.is_orientation_normalized:
+            self._apply_orientation_normalization()
+            # self._last_update_quaternion = self.current_quaternion.copy()
+        
+        # Handle initialization phase
+        self._handle_attitude_initialization()
+
+        """
+        Callback for vehicle odometry messages.
+        
+        This callback processes incoming odometry data from PX4, extracts
+        position, velocity, and angular velocity information, performs
+        NaN value checking for data validity, and manages the odometry
+        initialization phase including data collection for position averaging.
+        
+        Args:
+            msg (VehicleOdometry): ROS2 message containing vehicle odometry
+                                 information including position, velocity,
+                                 and angular velocity in NED/FRD frames.
+        """
+        # Extract state information from gazebo groundtruth in ENU frame for pose and FLU frame for velocities
+        position = msg.pose.pose.position # Position data in ENU frame
+        velocity = msg.twist.twist.linear # Velocity data in FLU frame
+        angular_velocity = msg.twist.twist.angular # Velocity data in FLU frame
+
+        # Assign to variables in NED frame
+        self.current_position = np.array([position.y, position.x, -position.z])
+        # Assign to variables in FRD frame
+        self.current_velocity = np.array([velocity.x , -velocity.y, -velocity.z])
+        self.current_angular_velocity = np.array([angular_velocity.x, -angular_velocity.y, -angular_velocity.z])
+
+        # self.current_position = np.array(msg.pose.pose.position)
+        # self.current_velocity = np.array(msg.twist.twist.linear)
+        # self.current_angular_velocity = np.array(msg.twist.twist.angular)
+        
+        # Check for NaN values
+        if (np.any(np.isnan(self.current_position)) or 
+            np.any(np.isnan(self.current_velocity)) or 
+            np.any(np.isnan(self.current_angular_velocity))):
+            self.get_logger().warn("Vehicle odometry contains NaN values - skipping update")
+            return
+        
+        # Store valid data
+        self._last_update_position = self.current_position.copy()
+        self._last_update_velocity = self.current_velocity.copy()
+        self._last_update_angular_velocity = self.current_angular_velocity.copy()
+        
+        # Initialize odometry state flag
+        if not self.is_odom_state_initialized:
+            self.is_odom_state_initialized = True
+            self.get_logger().info("Vehicle odometry state initialized")
+        
+        # Handle initialization phase
+        self._handle_odometry_initialization()
+        
     
     def vehicle_attitude_gt_callback(self, msg: VehicleAttitude):
         """
@@ -560,6 +693,8 @@ class TVC_CONTROLLER(Node):
         self.current_position = np.array(msg.position)
         self.current_velocity = np.array(msg.velocity)
         self.current_angular_velocity = np.array(msg.angular_velocity)
+
+        # print("Odometry message:", msg)
         
         # Check for NaN values
         if (np.any(np.isnan(self.current_position)) or 
@@ -869,9 +1004,24 @@ class TVC_CONTROLLER(Node):
             # Default to zero if no theta provided
             theta = 0.0
 
+        # phi_demand = np.clip(phi, -1.0, 1.0)  # Limit servo angles to [-1, 1] range
+        # theta_demand = np.clip(theta, -1.0, 1.0)  # Limit servo angles to [-1, 1] range
+
+        # demand_servo = ActuatorServos()
+        # demand_servo.timestamp = int(self.get_clock().now().nanoseconds / 1000)
+        # demand_servo.control = [phi_demand, theta_demand, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        # self.actuator_servo_demand.publish(demand_servo)
+    
+        # now = self.get_clock().now().nanoseconds * 1e-9
+        # dt = now - self.last_time
+        # self.last_time = now
+
+        # phi = self.actuator_model.update(phi, dt)
+        # theta = self.actuator_model.update(theta,dt)
+
         phi = np.clip(phi, -1.0, 1.0)  # Limit servo angles to [-1, 1] range
         theta = np.clip(theta, -1.0, 1.0)  # Limit servo angles to [-1, 1] range
-        
+
         servo_data = ActuatorServos()
         servo_data.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         servo_data.control = [phi, theta, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -1083,7 +1233,7 @@ class TVC_CONTROLLER(Node):
         
         # Publish control commands using the selected method
         if self.use_onboard_control_allocation:
-            self.allocate(phi, theta, thrust_gimbal_z_frame, torque_gimbal_z_frame)
+            self. allocate(phi, theta, thrust_gimbal_z_frame, torque_gimbal_z_frame)
         else:   
             self.publish_thrust_setpoint(thrust_gimbal_z_frame)
             self.publish_torque_setpoint(phi, theta, torque_gimbal_z_frame)

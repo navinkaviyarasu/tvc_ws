@@ -1,0 +1,41 @@
+<?xml version='1.0'?>
+<sdf version='1.11'>
+  <world name='viper_world'>
+    <!-- Inline static ground plane so the world does not depend on external models -->
+    <model name='ground_plane_inline'>
+      <static>true</static>
+      <link name='ground_link'>
+        <pose>0 0 0 0 0 0</pose>
+        <collision name='ground_collision'>
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name='ground_visual'>
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>1 1 1 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Include the local viper model by absolute file URI. Update this path if your workspace moves. -->
+    <include>
+      <uri>file:///home/nk/workspace/TVC_ws/src/tvc_controller/models/viper/model.sdf</uri>
+    </include>
+
+    <!-- World gravity should be set on the world, not inside the physics block -->
+    <gravity>0 0 -9.81</gravity>
+    <physics name='default_physics' type='ode'/>
+  </world>
+</sdf>
