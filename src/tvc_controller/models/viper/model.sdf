@@ -867,9 +867,7 @@
       <pitch_joint>servo1_pitch_joint</pitch_joint>
       <engine_link>motor_housing</engine_link>
       <servo_max_speed>0.122</servo_max_speed>
-      <!-- First-order servo time constant (seconds). If <= 0 the plugin uses a rate-limiter fallback. -->
       <servo_time_constant>0.10</servo_time_constant>
-      <!-- Optional: servo physical limits (plugin currently uses built-in defaults if these are absent) -->
       <servo_min_len>0.085</servo_min_len>
       <servo_max_len>0.115</servo_max_len>
       <topic>/tvc_servo_command</topic>
@@ -887,9 +885,19 @@
     </plugin>
 
     <plugin filename="gz-sim-odometry-publisher-system" 
-    name="gz::sim::systems::OdometryPublisher">
-    <dimensions>3</dimensions>
+      name="gz::sim::systems::OdometryPublisher">
+      <dimensions>3</dimensions>
     </plugin>
+
+    <plugin filename="libgz-sim-joint-state-publisher-system.so" 
+      name="gz::sim::systems::JointStatePublisher"/>
+
+
+    <!-- With current gazebo harmonic and gz-sim, the below plugin is not available -->
+    <!-- <plugin filename="libgz-sim-wrench-publisher-system.so" name="gz::sim::systems::WrenchPublisher">
+      <joint_name>servo0_roll_joint</joint_name>
+    </plugin> -->
+
     
     <!-- <plugin filename="libgazebo_ros_force_system.so" name="gazebo_ros_force">
       <link_name>base_link</link_name>
